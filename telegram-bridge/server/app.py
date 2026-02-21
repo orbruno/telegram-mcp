@@ -12,7 +12,12 @@ from api.models import (
     MessageModel,
     MessageContextModel,
     SendMessageRequest,
-    SendMessageResponse
+    SendMessageResponse,
+    AttachmentModel,
+    DownloadRequest,
+    DownloadResponse,
+    SyncRequest,
+    SyncResponse,
 )
 from service import TelegramService
 
@@ -168,3 +173,45 @@ async def send_message(
         message=request.message
     )
     return SendMessageResponse(success=success, message=message)
+
+
+@app.get("/api/attachments", response_model=List[AttachmentModel])
+async def list_attachments(
+    chat_id: Optional[int] = None,
+    media_type: Optional[str] = None,
+    limit: int = 50,
+    service: TelegramService = Depends(get_telegram_service)
+):
+    """List messages with attachments."""
+    attachments = await service.get_attachments(
+        chat_id=chat_id,
+        media_type=media_type,
+        limit=limit
+    )
+    return [AttachmentModel(**att) for att in attachments]
+
+
+@app.post("/api/download", response_model=DownloadResponse)
+async def download_attachment(
+    request: DownloadRequest,
+    service: TelegramService = Depends(get_telegram_service)
+):
+    """Download an attachment from a message."""
+    success, message, local_path = await service.download_media(
+        message_id=request.message_id,
+        chat_id=request.chat_id,
+        download_dir=request.download_dir
+    )
+    return DownloadResponse(success=success, message=message, local_path=local_path)
+
+
+@app.post("/api/sync", response_model=SyncResponse)
+async def sync_chat_history(
+    request: SyncRequest,
+    service: TelegramService = Depends(get_telegram_service)
+):
+    """Sync full message history for a specific chat."""
+    success, message, count = await service.sync_chat_full_history(
+        chat_id=request.chat_id
+    )
+    return SyncResponse(success=success, message=message, count=count)

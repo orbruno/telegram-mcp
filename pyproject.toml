@@ -1,0 +1,16 @@
+[project]
+name = "telegram-mcp"
+version = "0.1.0"
+requires-python = ">=3.10"
+dependencies = [
+    "telethon",
+    "cryptg",
+    "python-dotenv",
+    "requests",
+    "sqlalchemy",
+    "pydantic",
+    "fastapi",
+    "uvicorn",
+    "fastmcp",
+    "python-dateutil",
+]

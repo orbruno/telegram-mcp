@@ -99,7 +99,7 @@ class ChatRepository:
 
 class MessageRepository:
     """Repository for message operations."""
-    
+
     def store_message(
         self,
         message_id: int,
@@ -109,17 +109,24 @@ class MessageRepository:
         content: str,
         timestamp: datetime,
         is_from_me: bool,
+        has_media: bool = False,
+        media_type: Optional[str] = None,
+        file_id: Optional[str] = None,
+        file_name: Optional[str] = None,
+        file_size: Optional[int] = None,
+        mime_type: Optional[str] = None,
     ) -> None:
         """Store a message in the database."""
-        if not content:  # Skip empty messages
+        # Allow messages with media even if content is empty
+        if not content and not has_media:
             return
-            
+
         session = get_session()
         try:
             message = session.query(Message).filter_by(
                 id=message_id, chat_id=chat_id
             ).first()
-            
+
             if message:
                 # Update existing message
                 message.sender_id = sender_id
@@ -127,6 +134,12 @@ class MessageRepository:
                 message.content = content
                 message.timestamp = timestamp
                 message.is_from_me = is_from_me
+                message.has_media = has_media
+                message.media_type = media_type
+                message.file_id = file_id
+                message.file_name = file_name
+                message.file_size = file_size
+                message.mime_type = mime_type
             else:
                 # Create new message
                 message = Message(
@@ -134,13 +147,75 @@ class MessageRepository:
                     chat_id=chat_id,
                     sender_id=sender_id,
                     sender_name=sender_name,
-                    content=content,
+                    content=content or "",
                     timestamp=timestamp,
-                    is_from_me=is_from_me
+                    is_from_me=is_from_me,
+                    has_media=has_media,
+                    media_type=media_type,
+                    file_id=file_id,
+                    file_name=file_name,
+                    file_size=file_size,
+                    mime_type=mime_type,
                 )
                 session.add(message)
-                
+
             session.commit()
+        finally:
+            session.close()
+
+    def get_messages_with_media(
+        self,
+        chat_id: Optional[int] = None,
+        media_type: Optional[str] = None,
+        limit: int = 50,
+        offset: int = 0,
+    ) -> List[Message]:
+        """Get messages that have media attachments."""
+        session = get_session()
+        try:
+            db_query = session.query(Message).filter(Message.has_media == True)
+
+            if chat_id:
+                db_query = db_query.filter(Message.chat_id == chat_id)
+
+            if media_type:
+                db_query = db_query.filter(Message.media_type == media_type)
+
+            db_query = db_query.order_by(desc(Message.timestamp))
+            db_query = db_query.limit(limit).offset(offset)
+
+            return db_query.all()
+        finally:
+            session.close()
+
+    def update_local_path(
+        self,
+        message_id: int,
+        chat_id: int,
+        local_path: str
+    ) -> bool:
+        """Update the local path for a downloaded attachment."""
+        session = get_session()
+        try:
+            message = session.query(Message).filter_by(
+                id=message_id, chat_id=chat_id
+            ).first()
+
+            if message:
+                message.local_path = local_path
+                session.commit()
+                return True
+            return False
+        finally:
+            session.close()
+
+    def get_message_by_id(self, message_id: int, chat_id: int) -> Optional[Message]:
+        """Get a specific message by ID and chat_id."""
+        session = get_session()
+        try:
+            return session.query(Message).filter_by(
+                id=message_id, chat_id=chat_id
+            ).first()
         finally:
             session.close()
     

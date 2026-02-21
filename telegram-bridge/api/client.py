@@ -133,21 +133,59 @@ class TelegramApiClient:
             logger.error(f"Failed to get entity: {e}")
             return None
     
-    async def get_messages(self, entity: Any, limit: int = 100) -> List[Message]:
+    async def get_messages(self, entity: Any, limit: int = 100, ids: List[int] = None) -> List[Message]:
         """Get messages from a chat.
-        
+
         Args:
             entity: Chat entity
             limit: Maximum number of messages to retrieve
-            
+            ids: Optional list of specific message IDs to fetch
+
         Returns:
             List[Message]: List of messages
         """
         try:
+            if ids:
+                return await self.client.get_messages(entity, ids=ids)
             return await self.client.get_messages(entity, limit=limit)
         except Exception as e:
             logger.error(f"Failed to get messages: {e}")
             return []
+
+    async def iter_all_messages(self, entity: Any, limit: int = None, min_id: int = 0):
+        """Iterate through all messages in a chat.
+
+        This uses Telethon's iter_messages which handles pagination automatically.
+
+        Args:
+            entity: Chat entity
+            limit: Maximum number of messages to retrieve (None for all)
+            min_id: Only fetch messages with ID greater than this (for incremental sync)
+
+        Yields:
+            Message: Each message in the chat
+        """
+        try:
+            async for message in self.client.iter_messages(entity, limit=limit, min_id=min_id):
+                yield message
+        except Exception as e:
+            logger.error(f"Failed to iterate messages: {e}")
+
+    async def download_media(self, message: Message, file: str = None) -> Optional[str]:
+        """Download media from a message.
+
+        Args:
+            message: Message containing media
+            file: Optional file path to save to
+
+        Returns:
+            str: Path to downloaded file, or None if failed
+        """
+        try:
+            return await self.client.download_media(message, file=file)
+        except Exception as e:
+            logger.error(f"Failed to download media: {e}")
+            return None
     
     async def send_message(self, entity: Any, message: str) -> Optional[Message]:
         """Send a message to a chat.

@@ -32,9 +32,9 @@ class Chat(Base):
 
 class Message(Base):
     """Represents a Telegram message with all its metadata."""
-    
+
     __tablename__ = "messages"
-    
+
     id = Column(Integer, primary_key=True)
     chat_id = Column(Integer, ForeignKey("chats.id"), primary_key=True)
     sender_id = Column(Integer)
@@ -42,17 +42,27 @@ class Message(Base):
     content = Column(Text)
     timestamp = Column(DateTime, default=datetime.now)
     is_from_me = Column(Boolean, default=False)
-    
+
+    # Media/attachment fields
+    has_media = Column(Boolean, default=False)
+    media_type = Column(String)  # photo, document, video, audio, voice, sticker, etc.
+    file_id = Column(String)  # Telegram file reference for downloading
+    file_name = Column(String)
+    file_size = Column(Integer)
+    mime_type = Column(String)
+    local_path = Column(String)  # Path to downloaded file (if downloaded)
+
     # Relationship with chat
     chat = relationship("Chat", back_populates="messages")
-    
+
     # Indexes for improved query performance
     __table_args__ = (
         Index("idx_messages_chat_id", "chat_id"),
         Index("idx_messages_timestamp", "timestamp"),
         Index("idx_messages_content", "content"),
         Index("idx_messages_sender_id", "sender_id"),
+        Index("idx_messages_has_media", "has_media"),
     )
-    
+
     def __repr__(self):
         return f"<Message(id={self.id}, chat_id={self.chat_id}, sender='{self.sender_name}')>"
