@@ -7,6 +7,7 @@ Provides abstraction for data access operations on Telegram chats and messages.
 from datetime import datetime
 from typing import List, Optional, Dict, Any, Tuple
 from sqlalchemy import desc, or_, and_
+from sqlalchemy.orm import joinedload
 
 from database.base import get_session
 from database.models import Chat, Message
@@ -231,8 +232,8 @@ class MessageRepository:
         """Get messages from the database."""
         session = get_session()
         try:
-            # Build query
-            db_query = session.query(Message).join(Chat)
+            # Build query — eager load chat to avoid DetachedInstanceError
+            db_query = session.query(Message).options(joinedload(Message.chat))
             
             # Apply filters
             filters = []
@@ -274,22 +275,28 @@ class MessageRepository:
         """Get context around a specific message."""
         session = get_session()
         try:
-            # Get the target message
-            target_message = session.query(Message).filter_by(
+            # Get the target message — eager load chat to avoid DetachedInstanceError
+            target_message = session.query(Message).options(
+                joinedload(Message.chat)
+            ).filter_by(
                 id=message_id, chat_id=chat_id
             ).first()
-            
+
             if not target_message:
                 raise ValueError(f"Message with ID {message_id} in chat {chat_id} not found")
-                
+
             # Get messages before
-            before_messages = session.query(Message).filter(
+            before_messages = session.query(Message).options(
+                joinedload(Message.chat)
+            ).filter(
                 Message.chat_id == chat_id,
                 Message.timestamp < target_message.timestamp
             ).order_by(desc(Message.timestamp)).limit(before).all()
-            
+
             # Get messages after
-            after_messages = session.query(Message).filter(
+            after_messages = session.query(Message).options(
+                joinedload(Message.chat)
+            ).filter(
                 Message.chat_id == chat_id,
                 Message.timestamp > target_message.timestamp
             ).order_by(Message.timestamp).limit(after).all()
